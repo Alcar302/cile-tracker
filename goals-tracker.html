@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Cíle">
+<meta name="theme-color" content="#0d0d0f">
+<link rel="manifest" href="manifest.json">
+<title>Cíle – Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --card: #1a1a1f;
+    --border: #2a2a32;
+    --accent: #e8ff6b;
+    --text: #f0f0f5;
+    --muted: #6b6b7a;
+    --danger: #ff4d4d;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0 0 100px 0;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  header {
+    padding: 28px 20px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0;
+    background: rgba(13,13,15,0.92);
+    backdrop-filter: blur(12px); z-index: 10;
+  }
+  .logo { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .logo span { color: var(--accent); }
+  .date-chip {
+    font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 6px 12px; border-radius: 20px;
+  }
+
+  .main { padding: 20px; max-width: 480px; margin: 0 auto; }
+
+  .summary {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px; margin-bottom: 24px;
+  }
+  .summary-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 14px; text-align: center;
+  }
+  .summary-num { font-size: 28px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .summary-label { font-size: 10px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .section-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 2px;
+    color: var(--muted); margin-bottom: 14px; font-family: 'DM Mono', monospace;
+  }
+
+  .goals-list { display: flex; flex-direction: column; gap: 12px; }
+
+  .goal-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 18px; padding: 18px; cursor: pointer;
+    transition: border-color 0.2s, transform 0.15s;
+    animation: slideIn 0.3s ease both;
+  }
+  @keyframes slideIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+  .goal-card:hover { border-color: #3a3a44; transform: translateY(-1px); }
+  .goal-card.expanded { border-color: var(--accent); }
+
+  .goal-header { display: flex; align-items: flex-start; gap: 12px; }
+  .goal-icon {
+    width: 44px; height: 44px; border-radius: 13px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; flex-shrink: 0;
+  }
+  .goal-info { flex: 1; min-width: 0; }
+  .goal-name { font-size: 16px; font-weight: 700; }
+  .goal-meta { display: flex; gap: 8px; margin-top: 5px; align-items: center; flex-wrap: wrap; }
+
+  .tag {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    padding: 2px 8px; border-radius: 6px;
+    background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+  }
+  .streak-badge {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    padding: 2px 8px; border-radius: 6px;
+    background: rgba(232,255,107,0.1); color: var(--accent);
+    border: 1px solid rgba(232,255,107,0.2);
+  }
+  .consistency-badge {
+    font-family: 'DM Mono', monospace; font-size: 10px;
+    padding: 2px 8px; border-radius: 6px;
+    background: var(--surface); color: var(--muted); border: 1px solid var(--border);
+  }
+
+  .progress-row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  .progress-bar-bg { flex: 1; height: 5px; background: var(--surface); border-radius: 10px; overflow: hidden; }
+  .progress-bar-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
+  .progress-label { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+  .deadline-row {
+    display: flex; align-items: center; gap: 6px; margin-top: 8px;
+    font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
+  }
+  .deadline-row.urgent { color: var(--danger); }
+
+  .goal-detail {
+    display: none; margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid var(--border); animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  .goal-card.expanded .goal-detail { display: block; }
+
+  /* ===== CALENDAR ===== */
+  .cal-nav {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  }
+  .cal-month { font-size: 14px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .cal-btn {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); width: 28px; height: 28px;
+    border-radius: 8px; cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.2s;
+  }
+  .cal-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 3px; margin-bottom: 12px;
+  }
+  .cal-day-name {
+    text-align: center; font-family: 'DM Mono', monospace;
+    font-size: 9px; color: var(--muted); padding: 2px 0 4px;
+  }
+  .cal-day {
+    aspect-ratio: 1; border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace; font-size: 11px; color: var(--muted);
+    position: relative; transition: transform 0.1s;
+    border: 1px solid transparent;
+  }
+  .cal-day.empty { pointer-events: none; }
+  .cal-day.done { color: #0d0d0f !important; font-weight: 700; }
+  .cal-day.partial { color: var(--text) !important; }
+  .cal-day.today { border-color: var(--accent) !important; color: var(--accent); font-weight: 700; }
+  .cal-day.today.done { color: #0d0d0f !important; }
+  .cal-day.future { opacity: 0.2; pointer-events: none; }
+  .cal-day.clickable { cursor: pointer; }
+  .cal-day.clickable:hover { transform: scale(1.18); z-index: 1; }
+
+  .cal-legend {
+    display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+  /* Controls */
+  .controls { display: flex; flex-direction: column; gap: 12px; }
+  .control-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .control-label { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+
+  .checkin-btn {
+    padding: 9px 18px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .checkin-btn.done { background: rgba(232,255,107,0.12); border-color: var(--accent); color: var(--accent); }
+  .checkin-btn:hover { border-color: var(--accent); }
+
+  .num-input-row { display: flex; align-items: center; gap: 8px; }
+  .num-input-row button {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); font-size: 18px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: border-color 0.2s;
+  }
+  .num-input-row button:hover { border-color: var(--accent); color: var(--accent); }
+  .num-val { font-family: 'DM Mono', monospace; font-size: 14px; min-width: 60px; text-align: center; }
+
+  textarea.note-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 12px; padding: 10px; resize: none; height: 70px; outline: none;
+    transition: border-color 0.2s;
+  }
+  textarea.note-input:focus { border-color: var(--accent); }
+  .save-note-btn {
+    margin-top: 6px; padding: 8px 16px; border-radius: 10px; border: none;
+    background: var(--accent); color: #0d0d0f;
+    font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: opacity 0.2s;
+  }
+  .save-note-btn:hover { opacity: 0.85; }
+
+  .notes-history { display: flex; flex-direction: column; gap: 6px; }
+  .note-item { background: var(--surface); border-left: 3px solid var(--border); padding: 8px 10px; border-radius: 0 8px 8px 0; }
+  .note-date { font-family: 'DM Mono', monospace; font-size: 10px; color: var(--muted); }
+  .note-text { font-size: 12px; margin-top: 2px; }
+
+  .delete-btn {
+    padding: 6px 12px; border-radius: 8px;
+    border: 1px solid rgba(255,77,77,0.3); background: transparent; color: var(--danger);
+    font-family: 'Syne', sans-serif; font-size: 11px; cursor: pointer; transition: all 0.2s;
+  }
+  .delete-btn:hover { background: rgba(255,77,77,0.1); }
+
+  .fab {
+    position: fixed; bottom: 24px; right: 24px;
+    width: 58px; height: 58px; border-radius: 18px;
+    background: var(--accent); color: #0d0d0f; font-size: 28px;
+    border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 24px rgba(232,255,107,0.3);
+    transition: transform 0.2s, box-shadow 0.2s; z-index: 100;
+  }
+  .fab:hover { transform: scale(1.08); box-shadow: 0 12px 32px rgba(232,255,107,0.4); }
+
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+    z-index: 200; align-items: flex-end; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 24px 24px 0 0; padding: 24px 20px 44px;
+    width: 100%; max-width: 480px; animation: slideUp 0.3s ease;
+    max-height: 90vh; overflow-y: auto;
+  }
+  @keyframes slideUp { from { transform:translateY(100px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+  .modal-title { font-size: 20px; font-weight: 800; margin-bottom: 20px; }
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-family: 'DM Mono', monospace; display: block; margin-bottom: 6px; }
+  .form-input {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 15px; padding: 12px 14px;
+    outline: none; transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .emoji-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+  .emoji-opt {
+    width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: border-color 0.2s;
+  }
+  .emoji-opt.selected { border-color: var(--accent); background: rgba(232,255,107,0.1); }
+  .color-picker { display: flex; gap: 8px; }
+  .color-opt { width: 28px; height: 28px; border-radius: 8px; cursor: pointer; border: 2px solid transparent; transition: border-color 0.2s; }
+  .color-opt.selected { border-color: white; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-cancel {
+    flex: 1; padding: 14px; border-radius: 14px; border: 1px solid var(--border);
+    background: transparent; color: var(--text); font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .btn-create {
+    flex: 2; padding: 14px; border-radius: 14px; border: none;
+    background: var(--accent); color: #0d0d0f;
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
+    cursor: pointer; transition: opacity 0.2s;
+  }
+  .btn-create:hover { opacity: 0.88; }
+  .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">CÍLE<span>.</span></div>
+  <div class="date-chip" id="headerDate"></div>
+</header>
+
+<div class="main">
+  <div class="summary">
+    <div class="summary-card">
+      <div class="summary-num" id="sumTotal">0</div>
+      <div class="summary-label">Cílů</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-num" id="sumToday">0</div>
+      <div class="summary-label">Dnes ✓</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-num" id="sumStreak">0</div>
+      <div class="summary-label">Nejdelší streak</div>
+    </div>
+  </div>
+
+  <div class="section-title">Moje cíle</div>
+  <div class="goals-list" id="goalsList"></div>
+</div>
+
+<button class="fab" onclick="openModal()">+</button>
+
+<div class="modal-overlay" id="modalOverlay" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <div class="modal-title">Nový cíl</div>
+    <div class="form-group">
+      <label class="form-label">Název cíle</label>
+      <input class="form-input" id="goalName" placeholder="např. Běh každý den" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Ikona</label>
+      <div class="emoji-picker" id="emojiPicker"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Barva</label>
+      <div class="color-picker" id="colorPicker">
+        <div class="color-opt selected" data-color="#e8ff6b" style="background:#e8ff6b"></div>
+        <div class="color-opt" data-color="#6bffd4" style="background:#6bffd4"></div>
+        <div class="color-opt" data-color="#ff6b9d" style="background:#ff6b9d"></div>
+        <div class="color-opt" data-color="#6b9dff" style="background:#6b9dff"></div>
+        <div class="color-opt" data-color="#ffb86b" style="background:#ffb86b"></div>
+        <div class="color-opt" data-color="#c46bff" style="background:#c46bff"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Typ sledování</label>
+      <select class="form-input" id="goalType">
+        <option value="checkin">Denní check-in (splněno / nesplněno)</option>
+        <option value="count">Počet (km, stránky, minuty...)</option>
+      </select>
+    </div>
+    <div class="form-group" id="countTargetGroup" style="display:none">
+      <label class="form-label">Denní cíl</label>
+      <input class="form-input" id="countTarget" type="number" placeholder="např. 10" />
+      <input class="form-input" id="countUnit" placeholder="Jednotka (km, stránky...)" style="margin-top:8px"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Termín splnění (volitelné)</label>
+      <input class="form-input" id="goalDeadline" type="date" />
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Zrušit</button>
+      <button class="btn-create" onclick="createGoal()">Vytvořit cíl</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const EMOJIS = ['🎯','🏃','📚','💪','🧘','🎸','✍️','💻','🌱','🏋️','🚴','🎨','🍎','💤','🧠','🫀'];
+const DAYS_CS = ['Po','Út','St','Čt','Pá','So','Ne'];
+const MONTHS_CS = ['Leden','Únor','Březen','Duben','Květen','Červen','Červenec','Srpen','Září','Říjen','Listopad','Prosinec'];
+
+let goals = JSON.parse(localStorage.getItem('goals_v3') || '[]');
+let selectedEmoji = EMOJIS[0];
+let selectedColor = '#e8ff6b';
+let calState = {};
+
+const today = () => { const d=new Date(); return d.toISOString().slice(0,10); };
+const todayDate = new Date(); todayDate.setHours(0,0,0,0);
+
+function init() {
+  document.getElementById('headerDate').textContent =
+    new Date().toLocaleDateString('cs-CZ', {weekday:'short', day:'numeric', month:'short'});
+  buildEmojiPicker();
+  document.querySelectorAll('.color-opt').forEach(c => {
+    c.onclick = () => {
+      selectedColor = c.dataset.color;
+      document.querySelectorAll('.color-opt').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected');
+    };
+  });
+  document.getElementById('goalType').onchange = e => {
+    document.getElementById('countTargetGroup').style.display = e.target.value==='count' ? 'block' : 'none';
+  };
+  render();
+}
+
+function buildEmojiPicker() {
+  const ep = document.getElementById('emojiPicker');
+  ep.innerHTML = '';
+  EMOJIS.forEach(e => {
+    const d = document.createElement('div');
+    d.className = 'emoji-opt' + (e===selectedEmoji?' selected':'');
+    d.textContent = e;
+    d.onclick = () => { selectedEmoji=e; ep.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('selected')); d.classList.add('selected'); };
+    ep.appendChild(d);
+  });
+}
+
+// ---- Helpers ----
+function isDateDone(g, ds) {
+  if (g.type==='checkin') return (g.checkins||[]).includes(ds);
+  return ((g.counts||{})[ds]||0) >= g.countTarget;
+}
+function isDatePartial(g, ds) {
+  if (g.type!=='count') return false;
+  const v=(g.counts||{})[ds]||0;
+  return v>0 && v<g.countTarget;
+}
+
+function getStreak(g) {
+  const dates = g.type==='checkin'
+    ? (g.checkins||[])
+    : Object.entries(g.counts||{}).filter(([,v])=>v>0).map(([d])=>d);
+  if (!dates.length) return 0;
+  const sorted=[...new Set(dates)].sort().reverse();
+  let streak=0, cur=new Date(today());
+  for (let d of sorted) {
+    const dDate=new Date(d);
+    if (Math.round((cur-dDate)/86400000)<=1) { streak++; cur=dDate; } else break;
+  }
+  return streak;
+}
+
+function getConsistency30(g) {
+  let done=0;
+  for (let i=0;i<30;i++) {
+    const d=new Date(); d.setDate(d.getDate()-i);
+    if (isDateDone(g, d.toISOString().slice(0,10))) done++;
+  }
+  return Math.round(done/30*100);
+}
+
+function getDaysLeft(g) {
+  if (!g.deadline) return null;
+  return Math.round((new Date(g.deadline)-new Date(today()))/86400000);
+}
+
+// ---- Calendar ----
+function renderCalendar(g, idx) {
+  if (!calState[idx]) calState[idx]={year:todayDate.getFullYear(), month:todayDate.getMonth()};
+  const {year,month}=calState[idx];
+  const firstDay=new Date(year,month,1);
+  const lastDay=new Date(year,month+1,0);
+  let startOffset=firstDay.getDay()-1;
+  if (startOffset<0) startOffset=6;
+  const todayStr=today();
+
+  let html=`<div class="cal-nav">
+    <button class="cal-btn" onclick="calPrev(${idx},event)">‹</button>
+    <div class="cal-month">${MONTHS_CS[month]} ${year}</div>
+    <button class="cal-btn" onclick="calNext(${idx},event)">›</button>
+  </div><div class="cal-grid">`;
+
+  DAYS_CS.forEach(d=>{ html+=`<div class="cal-day-name">${d}</div>`; });
+  for(let i=0;i<startOffset;i++) html+=`<div class="cal-day empty"></div>`;
+
+  for(let day=1;day<=lastDay.getDate();day++){
+    const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const dDate=new Date(ds); dDate.setHours(0,0,0,0);
+    const isFuture=dDate>todayDate;
+    const isToday=ds===todayStr;
+    const done=!isFuture&&isDateDone(g,ds);
+    const partial=!isFuture&&!done&&isDatePartial(g,ds);
+
+    let cls='cal-day';
+    let bg='background:var(--surface);';
+
+    if(isFuture){ cls+=' future'; }
+    else {
+      cls+=' clickable';
+      if(done){ cls+=' done'; bg=`background:${g.color};`; }
+      else if(partial){ cls+=' partial'; bg=`background:${g.color}44;`; }
+      else { bg='background:var(--surface);'; }
+    }
+    if(isToday) cls+=' today';
+
+    const onclick=isFuture?'':`onclick="calDayClick(${idx},'${ds}',event)"`;
+    html+=`<div class="${cls}" style="${bg}" ${onclick}>${day}</div>`;
+  }
+
+  html+=`</div><div class="cal-legend">
+    <div class="legend-item"><div class="legend-dot" style="background:${g.color}"></div>Splněno</div>`;
+  if(g.type==='count') html+=`<div class="legend-item"><div class="legend-dot" style="background:${g.color}44;border:1px solid ${g.color}66"></div>Částečně</div>`;
+  html+=`<div class="legend-item"><div class="legend-dot" style="background:var(--surface);border:1px solid var(--border)"></div>Nesplněno</div>
+    <div class="legend-item"><div class="legend-dot" style="background:transparent;border:1px solid var(--accent)"></div>Dnes</div>
+  </div>`;
+  return html;
+}
+
+function calPrev(idx,e){
+  e.stopPropagation();
+  let {year,month}=calState[idx];
+  month--; if(month<0){month=11;year--;}
+  calState[idx]={year,month}; updateCalContainer(idx);
+}
+function calNext(idx,e){
+  e.stopPropagation();
+  let {year,month}=calState[idx];
+  month++; if(month>11){month=0;year++;}
+  calState[idx]={year,month}; updateCalContainer(idx);
+}
+function calDayClick(idx,ds,e){
+  e.stopPropagation();
+  const g=goals[idx];
+  if(g.type==='checkin'){
+    g.checkins=g.checkins||[];
+    if(g.checkins.includes(ds)) g.checkins=g.checkins.filter(x=>x!==ds);
+    else g.checkins.push(ds);
+  } else {
+    g.counts=g.counts||{};
+    if((g.counts[ds]||0)>=g.countTarget) delete g.counts[ds];
+    else g.counts[ds]=g.countTarget;
+  }
+  save(); updateCalContainer(idx); updateCardMeta(idx); updateSummary();
+}
+
+function updateCalContainer(idx){
+  const card=document.querySelectorAll('.goal-card')[idx];
+  if(!card) return;
+  const el=card.querySelector('.cal-container');
+  if(el) el.innerHTML=renderCalendar(goals[idx],idx);
+}
+
+function updateCardMeta(idx){
+  const card=document.querySelectorAll('.goal-card')[idx];
+  if(!card) return;
+  const g=goals[idx];
+  const streak=getStreak(g);
+  const cons=getConsistency30(g);
+  const sb=card.querySelector('.streak-badge');
+  const cb=card.querySelector('.consistency-badge');
+  if(sb){ sb.textContent=streak>0?`🔥 ${streak} dní`:''; sb.style.display=streak>0?'':'none'; }
+  if(cb) cb.textContent=`${cons}% / 30 dní`;
+  // checkin button
+  const btn=card.querySelector('.checkin-btn');
+  if(btn){
+    const done=isDateDone(g,today());
+    btn.textContent=done?'✓ Splněno':'Označit';
+    btn.className='checkin-btn'+(done?' done':'');
+  }
+  // count
+  const cl=card.querySelector('.count-today-label');
+  const nv=card.querySelector('.num-val');
+  if(cl) cl.textContent=`Dnes: ${(g.counts||{})[today()]||0} / ${g.countTarget} ${g.countUnit||''}`;
+  if(nv) nv.textContent=(g.counts||{})[today()]||0;
+}
+
+// ---- Render ----
+function updateSummary(){
+  const t=today();
+  const done=goals.filter(g=>isDateDone(g,t)).length;
+  const maxStreak=goals.reduce((m,g)=>Math.max(m,getStreak(g)),0);
+  document.getElementById('sumTotal').textContent=goals.length;
+  document.getElementById('sumToday').textContent=done;
+  document.getElementById('sumStreak').textContent=maxStreak;
+}
+
+function render(){
+  updateSummary();
+  const list=document.getElementById('goalsList');
+  if(!goals.length){
+    list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-text">Zatím žádné cíle.<br>Klikni na + a přidej první.</div></div>`;
+    return;
+  }
+  list.innerHTML='';
+  goals.forEach((g,i)=>renderGoalCard(g,i,list));
+}
+
+function renderGoalCard(g,i,container){
+  const streak=getStreak(g);
+  const cons=getConsistency30(g);
+  const daysLeft=getDaysLeft(g);
+  const todayStr=today();
+  const checkedToday=isDateDone(g,todayStr);
+  const countToday=g.type==='count'?((g.counts||{})[todayStr]||0):0;
+
+  let progressHTML='';
+  if(g.deadline){
+    const start=new Date(g.created), end=new Date(g.deadline);
+    const totalDays=Math.max(1,Math.round((end-start)/86400000));
+    const doneDays=g.type==='checkin'
+      ?(g.checkins||[]).length
+      :Object.values(g.counts||{}).filter(v=>v>=g.countTarget).length;
+    const pct=Math.min(100,Math.round(doneDays/totalDays*100));
+    const urgentClass=daysLeft!==null&&daysLeft<=7?'urgent':'';
+    const deadlineText=daysLeft<0?'⚠ Po termínu':daysLeft===0?'⚡ Dnes je termín!':`${daysLeft} dní zbývá`;
+    progressHTML=`
+      <div class="progress-row">
+        <div class="progress-bar-bg"><div class="progress-bar-fill" style="width:${pct}%;background:${g.color}"></div></div>
+        <div class="progress-label">${doneDays}/${totalDays} dní</div>
+      </div>
+      <div class="deadline-row ${urgentClass}">📅 ${deadlineText}</div>`;
+  }
+
+  const notesHTML=(g.notes||[]).slice(-3).reverse().map(n=>
+    `<div class="note-item"><div class="note-date">${n.date}</div><div class="note-text">${n.text}</div></div>`
+  ).join('');
+
+  const card=document.createElement('div');
+  card.className='goal-card';
+  card.style.animationDelay=(i*0.06)+'s';
+
+  card.innerHTML=`
+    <div class="goal-header">
+      <div class="goal-icon" style="background:${g.color}22">${g.icon}</div>
+      <div class="goal-info">
+        <div class="goal-name">${g.name}</div>
+        <div class="goal-meta">
+          <span class="tag">${g.type==='checkin'?'check-in':(g.countUnit||'počet')}</span>
+          <span class="streak-badge" style="${streak===0?'display:none':''}">🔥 ${streak} dní</span>
+          <span class="consistency-badge">${cons}% / 30 dní</span>
+        </div>
+      </div>
+    </div>
+    ${progressHTML}
+
+    <div class="goal-detail">
+      <div class="cal-container">${renderCalendar(g,i)}</div>
+      <div class="controls">
+        ${g.type==='checkin'?`
+        <div class="control-row">
+          <span class="control-label">Dnešní splnění</span>
+          <button class="checkin-btn ${checkedToday?'done':''}" onclick="toggleCheckin(${i},event)">
+            ${checkedToday?'✓ Splněno':'Označit'}
+          </button>
+        </div>`:`
+        <div class="control-row">
+          <span class="control-label count-today-label">Dnes: ${countToday} / ${g.countTarget} ${g.countUnit||''}</span>
+          <div class="num-input-row">
+            <button onclick="changeCount(${i},-1,event)">−</button>
+            <span class="num-val">${countToday}</span>
+            <button onclick="changeCount(${i},1,event)">+</button>
+          </div>
+        </div>`}
+        <div>
+          <span class="control-label" style="display:block;margin-bottom:6px">Poznámka ke dni</span>
+          <textarea class="note-input" id="note-${i}" placeholder="Zapiš si cokoliv..."></textarea>
+          <button class="save-note-btn" onclick="saveNote(${i},event)">Uložit</button>
+        </div>
+        ${notesHTML?`<div class="notes-history">${notesHTML}</div>`:''}
+        <button class="delete-btn" onclick="deleteGoal(${i},event)">🗑 Smazat cíl</button>
+      </div>
+    </div>
+  `;
+
+  card.querySelector('.goal-header').onclick=()=>{ card.classList.toggle('expanded'); };
+  container.appendChild(card);
+}
+
+// ---- Actions ----
+function toggleCheckin(i,e){
+  e.stopPropagation();
+  const g=goals[i]; const d=today();
+  g.checkins=g.checkins||[];
+  if(g.checkins.includes(d)) g.checkins=g.checkins.filter(x=>x!==d);
+  else g.checkins.push(d);
+  save(); updateCalContainer(i); updateCardMeta(i); updateSummary();
+}
+
+function changeCount(i,delta,e){
+  e.stopPropagation();
+  const g=goals[i]; g.counts=g.counts||{};
+  const d=today();
+  g.counts[d]=Math.max(0,(g.counts[d]||0)+delta);
+  save(); updateCalContainer(i); updateCardMeta(i); updateSummary();
+}
+
+function saveNote(i,e){
+  e.stopPropagation();
+  const inp=document.getElementById('note-'+i);
+  const text=inp.value.trim();
+  if(!text) return;
+  goals[i].notes=goals[i].notes||[];
+  goals[i].notes.push({date:today(),text});
+  inp.value='';
+  save(); render();
+}
+
+function deleteGoal(i,e){
+  e.stopPropagation();
+  if(!confirm('Smazat cíl "'+goals[i].name+'"?')) return;
+  goals.splice(i,1); calState={}; save(); render();
+}
+
+function save(){ localStorage.setItem('goals_v3',JSON.stringify(goals)); }
+
+// ---- Modal ----
+function openModal(){
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('goalName').value='';
+  document.getElementById('goalDeadline').value='';
+  document.getElementById('goalType').value='checkin';
+  document.getElementById('countTargetGroup').style.display='none';
+  document.getElementById('countTarget').value='';
+  document.getElementById('countUnit').value='';
+  selectedEmoji=EMOJIS[0]; selectedColor='#e8ff6b';
+  buildEmojiPicker();
+  document.querySelectorAll('.color-opt').forEach((el,i)=>el.classList.toggle('selected',i===0));
+  setTimeout(()=>document.getElementById('goalName').focus(),100);
+}
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
+function closeModalOutside(e){ if(e.target===document.getElementById('modalOverlay')) closeModal(); }
+
+function createGoal(){
+  const name=document.getElementById('goalName').value.trim();
+  if(!name){ document.getElementById('goalName').focus(); return; }
+  const type=document.getElementById('goalType').value;
+  const deadline=document.getElementById('goalDeadline').value||null;
+  const goal={name, icon:selectedEmoji, color:selectedColor, type, deadline, created:today(), checkins:[], counts:{}, notes:[]};
+  if(type==='count'){
+    goal.countTarget=parseInt(document.getElementById('countTarget').value)||10;
+    goal.countUnit=document.getElementById('countUnit').value||'x';
+  }
+  goals.unshift(goal); calState={}; save(); render(); closeModal();
+}
+
+init();
+
+// PWA Service Worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
